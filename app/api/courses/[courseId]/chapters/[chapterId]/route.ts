@@ -1,13 +1,8 @@
-import Mux from "@mux/mux-node";
 import { auth } from "@clerk/nextjs";
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
-
-const { Video } = new Mux(
-  process.env.MUX_TOKEN_ID!,
-  process.env.MUX_TOKEN_SECRET!
-);
+import { Video, isMuxConfigured } from "@/lib/mux";
 
 export async function DELETE(
   req: Request,
@@ -42,14 +37,14 @@ export async function DELETE(
       return new NextResponse("Not Found", { status: 404 });
     }
 
-    if (chapter.videoUrl) {
+    if (chapter.videoUrl && isMuxConfigured()) {
       const existingMuxData = await db.muxData.findFirst({
         where: {
           chapterId: params.chapterId,
         },
       });
 
-      if (existingMuxData) {
+      if (existingMuxData && Video) {
         await Video.Assets.del(existingMuxData.assetId);
         await db.muxData.delete({
           where: {
@@ -123,7 +118,8 @@ export async function PATCH(
       },
     });
 
-    if (values.videoUrl) {
+    // Only process Mux video if Mux is configured
+    if (values.videoUrl && isMuxConfigured() && Video) {
       const existingMuxData = await db.muxData.findFirst({
         where: {
           chapterId: params.chapterId,
